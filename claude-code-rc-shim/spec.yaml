@@ -13,23 +13,71 @@ description: >
   server-injected "Message sent at …" timestamp that breaks leading
   slash-commands in remote messages.
 
+  The shim's scripts are vendored into this kit under files/home/ (see
+  README for the upstream source and how to re-sync), so install no longer
+  clones anything and doesn't need github.com in caps.
+
+  Setup and the daemon both run from a single commands.startup entry rather
+  than commands.install: kit-provided files (files/home/) aren't mounted
+  into the container until the startup phase, so an install step can't see
+  them (it runs before the mount and fails with "not found"). PATH is
+  exported to include ~/.local/bin before setup.sh runs, not after: the
+  startup hook's shell doesn't inherit the same PATH as an interactive
+  session, so setup.sh's `command -v mitmdump` check (run right after `uv
+  tool install`) silently failed under `set -e` before the export was
+  reordered — the script died with no error output partway through, right
+  after the uv install log lines.
+
+  The sandbox pre-sets HTTP(S)_PROXY to its own credential-injecting
+  gateway proxy. A container-level environment.variables override was
+  tried to redirect that at the shim so plain `claude` would work with no
+  rc-claude wrapper, but it applies to every kit's commands.install too
+  (they share the same merged container env), not just the final running
+  container -- it broke gitlab-api's install step, which needs real
+  internet egress before the shim exists to route through. Instead, once
+  the shim confirms it's actually listening, the startup hook appends the
+  proxy overrides to /etc/sandbox-persistent.sh, which every login shell
+  (and BASH_ENV for non-interactive bash children) sources -- so a plain
+  `claude` picks it up without a static, install-time-unsafe container env
+  override. rc-claude.sh (still symlinked as `rc-claude`) remains as a
+  fallback for the window between sandbox start and the shim coming up.
+
 caps:
   network:
     allow:
-      - github.com
       - pypi.org
       - files.pythonhosted.org
 
 commands:
-  install:
-    - command: |
-        set -euo pipefail
-        DEST="$HOME/scoped-token-shim"
-        if [ -d "$DEST/.git" ]; then
-          git -C "$DEST" pull --ff-only
-        else
-          git clone https://github.com/cbrown1234/sbx-claude-code-rc-shim.git "$DEST"
-        fi
-        "$DEST/setup.sh"
+  startup:
+    - command:
+        - sh
+        - -c
+        - |
+          set -euo pipefail
+          export PATH="$HOME/.local/bin:$PATH"
+          {
+            "$HOME/scoped-token-shim/setup.sh"
+            mkdir -p "$HOME/.local/bin"
+            ln -sf "$HOME/scoped-token-shim/rc-claude.sh" "$HOME/.local/bin/rc-claude"
+            "$HOME/scoped-token-shim/run.sh" &
+            RUN_PID=$!
+            # Publish the proxy override for future shells only once the shim is
+            # actually accepting connections -- never point new shells at a dead
+            # proxy. This is what lets plain `claude` work without rc-claude.
+            for i in $(seq 1 30); do
+              code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 1 http://127.0.0.1:8080 2>/dev/null || true)"
+              [ "$code" != "000" ] && [ -n "$code" ] && break
+              sleep 1
+            done
+            {
+              echo 'export HTTPS_PROXY="http://127.0.0.1:8080"'
+              echo 'export HTTP_PROXY="http://127.0.0.1:8080"'
+              echo 'export https_proxy="http://127.0.0.1:8080"'
+              echo 'export http_proxy="http://127.0.0.1:8080"'
+            } >> /etc/sandbox-persistent.sh
+            wait "$RUN_PID"
+          } > "$HOME/scoped-token-shim/run.log" 2>&1
       user: "1000"
-      description: Clone the shim repo and run one-time setup (install mitmproxy, trust its CA system-wide)
+      background: true
+      description: One-time setup (install mitmproxy, generate + trust its CA system-wide, symlink rc-claude onto PATH), then start the scoped-token shim daemon on 127.0.0.1:8080 on every sandbox boot, then publish the proxy override to /etc/sandbox-persistent.sh once the shim is confirmed up
