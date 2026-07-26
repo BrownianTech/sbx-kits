@@ -24,7 +24,6 @@ commands:
   install:
     - command: |
         set -euo pipefail
-        export PATH="$PATH:$(uv tool dir --bin)"
         DEST="$HOME/scoped-token-shim"
         if [ -d "$DEST/.git" ]; then
           git -C "$DEST" pull --ff-only
@@ -32,4 +31,5 @@ commands:
           git clone https://github.com/cbrown1234/sbx-claude-code-rc-shim.git "$DEST"
         fi
         "$DEST/setup.sh"
+      user: "1000"
       description: Clone the shim repo and run one-time setup (install mitmproxy, trust its CA system-wide)
