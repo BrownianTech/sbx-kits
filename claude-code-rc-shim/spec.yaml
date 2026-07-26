@@ -16,23 +16,48 @@ description: >
 caps:
   network:
     allow:
-      - github.com
-      - objects.githubusercontent.com
+      - raw.githubusercontent.com
       - pypi.org
       - files.pythonhosted.org
 
 commands:
   install:
+    # Run as root: download shim scripts and install mitmproxy system-wide.
+    # Uses raw.githubusercontent.com (not git clone) to avoid needing
+    # codeload.github.com, and python3 -m pip (not uv) so the install works
+    # regardless of which user pip/uv are on PATH for.
     - command: |
         set -euo pipefail
-        DEST="$HOME/scoped-token-shim"
-        if [ -d "$DEST/.git" ]; then
-          git -C "$DEST" pull --ff-only
-        else
-          git clone https://github.com/cbrown1234/sbx-claude-code-rc-shim.git "$DEST"
+        USER_HOME=$(getent passwd 1000 | cut -d: -f6)
+        DEST="$USER_HOME/scoped-token-shim"
+        mkdir -p "$DEST"
+        BASE=https://raw.githubusercontent.com/cbrown1234/sbx-claude-code-rc-shim/main
+        for f in addon.py run.sh rc-claude.sh; do
+          curl -sfL "$BASE/$f" -o "$DEST/$f"
+        done
+        chmod +x "$DEST/run.sh" "$DEST/rc-claude.sh"
+        chown -R 1000:1000 "$DEST"
+        python3 -m pip install --quiet mitmproxy
+      description: Download shim scripts to ~/scoped-token-shim and install mitmproxy system-wide
+    # Run as user 1000: generate mitmproxy's CA in ~/.mitmproxy (the default
+    # location run.sh will look for it later).
+    - command: |
+        set -euo pipefail
+        MITM_CA="$HOME/.mitmproxy/mitmproxy-ca-cert.pem"
+        if [ ! -f "$MITM_CA" ]; then
+          timeout 5 mitmdump --listen-host 127.0.0.1 --listen-port 18080 -q >/dev/null 2>&1 || true
         fi
-        "$DEST/setup.sh"
-      description: >
-        Clone cbrown1234/sbx-claude-code-rc-shim to ~/scoped-token-shim and
-        run one-time setup: installs mitmproxy via uv, generates its CA, and
-        trusts it system-wide so node/python/curl all honour the shim's TLS.
+        test -f "$MITM_CA"
+      user: "1000"
+      description: Generate mitmproxy CA as the agent user
+    # Run as root: append the CA to the system bundle. No sudo needed here.
+    - command: |
+        set -euo pipefail
+        USER_HOME=$(getent passwd 1000 | cut -d: -f6)
+        MITM_CA="$USER_HOME/.mitmproxy/mitmproxy-ca-cert.pem"
+        SYS_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+        FP=$(openssl x509 -in "$MITM_CA" -noout -fingerprint -sha256 | cut -d= -f2)
+        if ! grep -qF "# scoped-token-shim mitmproxy CA $FP" "$SYS_BUNDLE"; then
+          { echo "# scoped-token-shim mitmproxy CA $FP"; cat "$MITM_CA"; } >> "$SYS_BUNDLE"
+        fi
+      description: Trust the mitmproxy CA system-wide
