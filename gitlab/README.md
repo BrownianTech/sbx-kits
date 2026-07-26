@@ -78,10 +78,9 @@ $ git fetch sandbox-<name>
 
 ## If the install command fails
 
-The kit only allows `gitlab.com` through the sandbox's network policy. If
-`install.sh` reaches anything else (a CDN, a redirect target, etc.) the
-install will fail closed rather than silently succeed insecurely. Check
-what actually got blocked and add it to `caps.network.allow`:
+The kit only allows `gitlab.com` through the sandbox's network policy. The
+install command uses the GitLab Package Registry API (also on `gitlab.com`)
+so no extra domains are needed. If something does get blocked, check the log:
 
 ```console
 $ sbx policy log claude-blog
