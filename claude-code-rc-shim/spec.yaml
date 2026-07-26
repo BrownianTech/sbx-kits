@@ -1,0 +1,38 @@
+schemaVersion: "2"
+kind: mixin
+name: claude-code-rc-shim
+displayName: Claude Code RC Scoped-Token Shim
+description: >
+  Installs the scoped-token egress shim that lets Claude Code Remote Control
+  (RC) work inside an sbx sandbox. The shim is a local mitmproxy-based HTTPS
+  proxy: it defaults every request to sbx's injecting forward proxy, but
+  bypasses credential injection for RC's scoped-token paths
+  (sessions/work-lease/events) when the outgoing Authorization is already a
+  real scoped token — preventing the 401/403 worker_register_failed errors
+  caused by the unconditional header rewrite. It also strips the
+  server-injected "Message sent at …" timestamp that breaks leading
+  slash-commands in remote messages.
+
+caps:
+  network:
+    allow:
+      - github.com
+      - objects.githubusercontent.com
+      - pypi.org
+      - files.pythonhosted.org
+
+commands:
+  install:
+    - command: |
+        set -euo pipefail
+        DEST="$HOME/scoped-token-shim"
+        if [ -d "$DEST/.git" ]; then
+          git -C "$DEST" pull --ff-only
+        else
+          git clone https://github.com/cbrown1234/sbx-claude-code-rc-shim.git "$DEST"
+        fi
+        "$DEST/setup.sh"
+      description: >
+        Clone cbrown1234/sbx-claude-code-rc-shim to ~/scoped-token-shim and
+        run one-time setup: installs mitmproxy via uv, generates its CA, and
+        trusts it system-wide so node/python/curl all honour the shim's TLS.
