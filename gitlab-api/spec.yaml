@@ -47,3 +47,6 @@ commands:
     - command: "glab config set -g host gitlab.com"
       user: "1000"
       description: Point glab at gitlab.com by default
+
+agentContext: |
+  `glab` is available, with a proxy managed token
