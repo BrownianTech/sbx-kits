@@ -20,9 +20,9 @@ setup:
         - sh
         - -c
         - |
-          git config --global url."https://github.com/".insteadOf "git@github.com:" &&
+          git config --global --replace-all url."https://github.com/".insteadOf "git@github.com:" &&
           git config --global --add url."https://github.com/".insteadOf "ssh://git@github.com/" &&
-          git config --global url."https://gitlab.com/".insteadOf "git@gitlab.com:" &&
+          git config --global --replace-all url."https://gitlab.com/".insteadOf "git@gitlab.com:" &&
           git config --global --add url."https://gitlab.com/".insteadOf "ssh://git@gitlab.com/"
       user: "1000"
       description: SSH-to-HTTPS rewriting
