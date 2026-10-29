@@ -1,18 +1,20 @@
 name: Validate kits
 
-# Runs `sbx kit validate` against every kit in this repo. This is the same
-# check `sbx` itself performs when resolving a kit (`kit "<path>": artifact:
-# invalid spec.yaml: ...`), so it catches spec.yaml drift — field renames,
-# schema-version bumps, typos — before it reaches a sandbox at runtime.
+# Validates every kit's spec.yaml with docker/sbx-kits-contrib's
+# `verify-kit-spec`, which loads a kit through the same spec package
+# `sbx kit validate`/`sbx kit inspect` use, and additionally fails on any
+# warning. That catches spec.yaml drift — field renames, schema-version
+# bumps, typos — before it reaches a sandbox at runtime.
 #
-# sbx has no public installer package, so the binary is fetched straight
-# from the docker/sbx-releases GitHub releases, mirroring the download step
-# docker/sbx-kits-contrib uses in its own e2e workflow:
-# https://github.com/docker/sbx-kits-contrib/blob/main/.github/workflows/e2e.yml
+# This replaces running `sbx kit validate` directly: since sbx v0.50.0 it
+# refuses to run without a Docker sign-in ("not signed in to Docker"), which
+# would need Hub credentials in CI and still couldn't run on fork PRs, where
+# secrets aren't exposed. sbx-kits-contrib documents verify-kit-spec as the
+# check to use "anywhere `sbx` itself isn't available":
+# https://github.com/docker/sbx-kits-contrib/blob/main/scripts/README.md
 #
-# `sbx kit validate` only parses and type-checks the spec locally — it
-# doesn't need a running daemon, Docker Hub auth, or KVM — so this workflow
-# stays deliberately lighter than sbx-kits-contrib's full TCK/e2e suite.
+# sbx-kits-contrib is pinned to a commit so a change there can't break this
+# repo's CI unannounced; bump SBX_KITS_CONTRIB_REF to pick up newer spec rules.
 
 on:
   push:
@@ -22,27 +24,31 @@ on:
 permissions:
   contents: read
 
+env:
+  SBX_KITS_CONTRIB_REF: cc1dba65e1524be82d3b3de1cb68f88168aafe34
+
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Install sbx
-        run: |
-          set -euo pipefail
-          VERSION=$(curl -fsSL https://api.github.com/repos/docker/sbx-releases/releases/latest | jq -r .tag_name)
-          echo "Resolved latest sbx release: ${VERSION}"
-          curl -fsSL \
-            "https://github.com/docker/sbx-releases/releases/download/${VERSION}/DockerSandboxes-linux-amd64.tar.gz" \
-            -o /tmp/sbx.tar.gz
-          tar xzf /tmp/sbx.tar.gz -C /tmp
-          # `sbx kit validate` only parses/type-checks locally, so we use the
-          # bare binary directly rather than running install.sh (which pulls
-          # in sandbox-runtime prerequisites like e2fsprogs that validate
-          # doesn't need).
-          sudo install -m 755 /tmp/docker-sbx/sbx /usr/local/bin/sbx
-          sbx version
+      - name: Check out sbx-kits-contrib
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: docker/sbx-kits-contrib
+          ref: ${{ env.SBX_KITS_CONTRIB_REF }}
+          path: .sbx-kits-contrib
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: .sbx-kits-contrib/go.mod
+          cache-dependency-path: .sbx-kits-contrib/go.sum
+
+      - name: Build verify-kit-spec
+        working-directory: .sbx-kits-contrib
+        run: go build -o "${RUNNER_TEMP}/verify-kit-spec" ./scripts/verify-kit-spec
 
       - name: Validate every kit
         run: |
@@ -51,16 +57,8 @@ jobs:
           for f in */spec.yaml */spec.yml; do
             [ -f "$f" ] || continue
             kit=$(dirname "$f")
-            echo "::group::sbx kit validate ${kit}"
-            # A kit with required args (e.g. clone-repo) can't validate with
-            # no values supplied; ci-args.txt sits next to spec.yaml with
-            # sample name=value pairs (see --kit-args-file) so validate has
-            # something to substitute.
-            args_flag=()
-            if [ -f "${kit}/ci-args.txt" ]; then
-              args_flag=(--kit-args-file "${kit}/ci-args.txt")
-            fi
-            if ! sbx kit validate "./${kit}/" "${args_flag[@]}"; then
+            echo "::group::verify-kit-spec ${kit}"
+            if ! "${RUNNER_TEMP}/verify-kit-spec" "./${kit}/"; then
               status=1
             fi
             echo "::endgroup::"
