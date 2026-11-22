@@ -86,19 +86,18 @@ the `network-policy@1` runtime allow list, the `glab config set -g host`
 command and the git credential-helper URL. Use the same hostname in the `--host` flag when
 running `sbx secret set-custom`.
 
-Leave the install-phase allow entry and the release URLs in the glab install
-hook on `gitlab.com`. glab is only published there, so changing them breaks
-the install and sandbox creation fails.
+glab itself needs no change: the kit image already carries it, downloaded
+from gitlab.com when the kit is built, so a self-hosted sandbox never
+reaches gitlab.com.
 
-## If the install command fails
+## The glab binary
 
-All traffic stays on `gitlab.com` (the Package Registry API is also there).
-If something is blocked, check the log and re-apply:
-
-```console
-sbx policy log <sandbox-name>
-sbx kit add <sandbox-name> /path/to/sbx-kits/gitlab-api/
-```
+`glab` is baked into the kit image at build time by `gitlab-api.dockerfile`, not
+downloaded when the sandbox is created. The release is pinned by the `version`
+arg in `gitlab-api.yaml`, and the tarball is checked against per-arch SHA256 digests
+in the recipe. The build also fails if `glab --version` doesn't report the
+pinned release. To bump glab, change the arg's default and both digests
+together, using the release's `checksums.txt`.
 
 ## Checking auth
 
