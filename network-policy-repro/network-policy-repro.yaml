@@ -1,0 +1,14 @@
+# syntax=docker/sandbox-kit:3
+schemaVersion: "3"
+kind: mixin
+displayName: Network Policy Repro
+description: >
+  Minimal kit for reproducing that `sbx kit add` does not apply
+  network-policy allow rules to a running sandbox.
+
+capabilities:
+  - type: com.docker.sandbox/network-policy@1
+    config:
+      runtime:
+        allow:
+          - repro.example.com:9999

@@ -7,7 +7,7 @@ filesystem is ever exposed to the sandbox, only the repo you name.
 
 ## How it works
 
-`setup.startup` runs `git clone <repo> $HOME/workspace` (skipped if that
+A `lifecycle@1` startup hook runs `git clone <repo> $HOME/workspace` (skipped if that
 directory is already a git checkout, so it's safe across sandbox restarts),
 then checks out `ref` if one was given. There's no bind-mounted workspace
 path to clone into for a workspace-less sandbox, so the target is a fixed
@@ -18,18 +18,18 @@ directory under the agent user's home rather than anything host-supplied.
 | Name   | Required | Description                                                        |
 | ------ | -------- | ------------------------------------------------------------------- |
 | `repo` | yes      | Git URL to clone (`https://` or `git@` — anything `git clone` takes) |
-| `host` | no       | Hostname to allow egress to — set it to the host in `repo`           |
+| `host` | yes      | Hostname to allow egress to — set it to the host in `repo`           |
 | `ref`  | no       | Branch, tag, or commit to check out after cloning                    |
 
-`host` exists because the kit's own network allowlist is built from it
-(`permissions.network.allow: [${{ kit.args.host }}]`) — declare it
-separately rather than parsing it out of `repo`.
+`host` exists because the kit's own runtime network allow list is built from
+it (`network-policy@1` → `runtime.allow: [<host>]`) — declare it separately
+rather than parsing it out of `repo`.
 
-Leave `host` unset if a paired kit (`agent-git`, `gitlab-api`, `gitlab-ssh`)
-already opens egress to that host — an unset `host` adds no allow rule at
-all, rather than an empty one, so nothing is opened twice. Set it whenever
-`repo` points somewhere those kits don't cover (a self-hosted Git server, for
-example), or the clone will fail against the default-deny network policy.
+`host` is required. In the v2 kit it could be left unset when a paired kit
+(`agent-git`, `gitlab-api`, `gitlab-ssh`) already opened egress to that host,
+but v3 rejects an empty host in a network-policy entry. Setting it to a host a
+paired kit already allows is harmless: allow lists from every kit in the
+composition are unioned and deduplicated.
 
 ## Usage
 

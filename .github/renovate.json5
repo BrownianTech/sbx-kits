@@ -18,23 +18,8 @@
     {
       // Every dependency in this repo only affects CI, so commit as
       // `ci(deps): ...` rather than the default `fix(deps): ...`.
-      matchManagers: ['github-actions', 'custom.regex'],
+      matchManagers: ['github-actions'],
       semanticCommitType: 'ci',
-    },
-  ],
-  customManagers: [
-    {
-      // validate.yml checks out docker/sbx-kits-contrib at a pinned commit
-      // to build its kit validator. The repo's tags lag main by weeks, so
-      // track main's latest commit instead.
-      customType: 'regex',
-      description: 'Pinned docker/sbx-kits-contrib commit used by the validate workflow',
-      managerFilePatterns: ['/^\\.github/workflows/validate\\.ya?ml$/'],
-      matchStrings: ['SBX_KITS_CONTRIB_REF:\\s*(?<currentDigest>[0-9a-f]{40})'],
-      datasourceTemplate: 'git-refs',
-      depNameTemplate: 'docker/sbx-kits-contrib',
-      packageNameTemplate: 'https://github.com/docker/sbx-kits-contrib',
-      currentValueTemplate: 'main',
     },
   ],
 }

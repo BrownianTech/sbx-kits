@@ -1,21 +1,17 @@
 name: Validate kits
 
-# Validates every kit's spec.yaml with docker/sbx-kits-contrib's
-# `verify-kit-spec`, which loads a kit through the same spec package
-# `sbx kit validate`/`sbx kit inspect` use, and additionally fails on any
-# warning. That catches spec.yaml drift — field renames, schema-version
-# bumps, typos — before it reaches a sandbox at runtime.
+# Builds every kit with the v3 sandbox-kit BuildKit frontend. Each
+# descriptor's first line, `# syntax=docker/sandbox-kit:3`, dispatches the
+# frontend, which strictly decodes and validates the descriptor during the
+# build. A successful build is the validation; `--output type=cacheonly`
+# throws the result away.
 #
-# This replaces running `sbx kit validate` directly: since sbx v0.50.0 it
-# refuses to run without a Docker sign-in ("not signed in to Docker"), which
-# would need Hub credentials in CI and still couldn't run on fork PRs, where
-# secrets aren't exposed. sbx-kits-contrib documents verify-kit-spec as the
-# check to use "anywhere `sbx` itself isn't available":
-# https://github.com/docker/sbx-kits-contrib/blob/main/scripts/README.md
+# This replaces the v2 `verify-kit-spec` check from docker/sbx-kits-contrib,
+# which only understands `spec.yaml` (schemaVersion 1/2). `sbx kit validate`
+# is no use either: it doesn't accept v3 source kits.
 #
-# sbx-kits-contrib is pinned to a commit so a change there can't break this
-# repo's CI unannounced. Renovate opens a PR to bump SBX_KITS_CONTRIB_REF to
-# the latest main commit each week (see .github/renovate.json5).
+# A kit is any top-level directory holding a descriptor named after itself
+# (`<dir>/<dir>.yaml`), the same rule sbx-kits-contrib's discover-kits.sh uses.
 
 on:
   push:
@@ -25,43 +21,27 @@ on:
 permissions:
   contents: read
 
-env:
-  SBX_KITS_CONTRIB_REF: cc1dba65e1524be82d3b3de1cb68f88168aafe34
-
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Check out sbx-kits-contrib
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: docker/sbx-kits-contrib
-          ref: ${{ env.SBX_KITS_CONTRIB_REF }}
-          path: .sbx-kits-contrib
-          persist-credentials: false
-
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: .sbx-kits-contrib/go.mod
-          cache-dependency-path: .sbx-kits-contrib/go.sum
-
-      - name: Build verify-kit-spec
-        working-directory: .sbx-kits-contrib
-        run: go build -o "${RUNNER_TEMP}/verify-kit-spec" ./scripts/verify-kit-spec
-
-      - name: Validate every kit
+      - name: Build every kit
         run: |
           set -euo pipefail
           status=0
-          for f in */spec.yaml */spec.yml; do
-            [ -f "$f" ] || continue
+          found=0
+          for f in */*.yaml; do
             kit=$(dirname "$f")
-            echo "::group::verify-kit-spec ${kit}"
-            if ! "${RUNNER_TEMP}/verify-kit-spec" "./${kit}/"; then
+            [ "$f" = "${kit}/${kit}.yaml" ] || continue
+            found=1
+            echo "::group::build ${kit}"
+            if ! (cd "$kit" && docker buildx build . -f "${kit}.yaml" --output type=cacheonly); then
+              echo "::error file=${f}::${kit} failed to build"
               status=1
             fi
             echo "::endgroup::"
           done
+          [ "$found" = 1 ] || { echo "::error::no kits found"; exit 1; }
           exit "$status"

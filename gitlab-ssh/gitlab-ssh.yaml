@@ -1,0 +1,18 @@
+# syntax=docker/sandbox-kit:3
+schemaVersion: "3"
+kind: mixin
+displayName: GitLab (SSH)
+description: >
+  Opens port 22 to gitlab.com so git push/pull over SSH works inside the
+  sandbox. sbx automatically forwards SSH_AUTH_SOCK from the host, so no
+  key management or credential wiring is needed — this kit is purely a
+  network-policy cap.
+
+capabilities:
+  # Runtime only: the agent's git traffic. The port stays pinned to 22
+  # because narrowing to SSH is this kit's whole purpose.
+  - type: com.docker.sandbox/network-policy@1
+    config:
+      runtime:
+        allow:
+          - gitlab.com:22

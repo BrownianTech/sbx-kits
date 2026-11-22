@@ -11,13 +11,13 @@ the agent can open merge requests, on top of the SSH agent forwarding
   is set on your host, Docker Sandboxes forwards your agent into the
   sandbox automatically. No config needed, and this kit doesn't touch it.
 - **Opening an MR** — always an API call, which GitLab authenticates with a
-  token, not SSH. This kit declares a `gitlab` credential (kit-spec v2:
-  `credentials[].apiKey`) with an `inject` rule so the host-side proxy
+  token, not SSH. This kit declares a `gitlab` credential (kit-spec v3:
+  a `credential@1` capability) with an `inject` rule so the host-side proxy
   writes your token into the `PRIVATE-TOKEN` header on any request to
   gitlab.com. The token stays on your host; the sandbox only ever sees the
   literal placeholder string `proxy-managed` in `$GITLAB_TOKEN`.
 
-Note the v2 credential schema has no env-var source field — the kit only
+Note the credential capability has no env-var source field — the kit only
 declares *what* it needs (`service: gitlab`, where to inject it); *where*
 the real value lives is entirely up to the user-side bindings file
 (`~/.config/sbx/credentials.yaml`), which the next step populates.
@@ -94,15 +94,19 @@ $ sbx kit add claude-blog ~/repos/sbx-kits/gitlab/
 
 ## Self-hosted GitLab
 
-Replace every `gitlab.com` in `spec.yaml` with your instance's hostname
-(three places: `caps.network.allow`, `credentials[].apiKey.inject[].domain`,
+Replace every `gitlab.com` in `gitlab.yaml` with your instance's hostname
+(the `network-policy@1` install and runtime allow lists, the `credential@1`
+`inject[].domain`, the release URLs in the glab install hook,
 and the `glab config set -g host` install command) — and use the same
 hostname in the `--host` flag when running `sbx secret set-custom`.
 
 ## Iterating on the kit
 
+v3 kits need an `sbx` release candidate or nightly. `sbx kit validate`
+doesn't accept v3 source kits; building the descriptor is what validates it.
+
 ```console
-$ sbx kit validate ./gitlab-kit/     # check the spec is well-formed
-$ sbx kit inspect ./gitlab-kit/      # see what it resolves to
-$ sbx kit add my-sandbox ./gitlab-kit/   # apply to an already-running sandbox
+$ (cd gitlab && docker buildx build . -f gitlab.yaml --output type=cacheonly)  # validate
+$ sbx kit inspect ./gitlab/            # see what it resolves to
+$ sbx kit add my-sandbox ./gitlab/     # apply to an already-running sandbox
 ```

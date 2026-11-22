@@ -1,0 +1,86 @@
+# syntax=docker/sandbox-kit:3
+schemaVersion: "3"
+kind: mixin
+displayName: GitLab (glab + token auth)
+description: >
+  Installs the glab CLI and wires up token-based auth for gitlab.com so the
+  agent can push branches (over the SSH agent, forwarded automatically) and
+  open merge requests (over the API, via this kit's credential wiring).
+
+capabilities:
+  # --- Network -----------------------------------------------------------
+  # v3 network policy is phase-scoped, and an absent phase grants nothing.
+  # If you're on self-hosted GitLab, replace gitlab.com everywhere in this
+  # file with your hostname.
+  #
+  # MIGRATION NOTE: v2 listed both `gitlab.com` and `gitlab.com:22`. A
+  # portless entry already matches any port, so `gitlab.com` alone covers
+  # SSH on 22.
+  - type: com.docker.sandbox/network-policy@1
+    config:
+      # The glab release lookup and download in the install hook.
+      install:
+        allow:
+          - gitlab.com
+      # glab's API traffic and git over SSH. Also where the credential's
+      # inject domain must appear.
+      runtime:
+        allow:
+          - gitlab.com
+
+  # --- Credentials -------------------------------------------------------
+  # One credential@1 per service. The kit only describes WHAT it needs
+  # (service id + where to inject it); WHERE the real value lives is up to
+  # the host, populated by `sbx secret set`.
+  #
+  # optional: v2 credentials defaulted to not-required; v3 inverts that.
+  - type: com.docker.sandbox/credential@1
+    optional: true
+    description: GitLab personal/project access token (api scope)
+    config:
+      service: gitlab
+      phase: runtime
+      apiKey:
+        name: GITLAB_TOKEN
+        proxyManaged: true
+        inject:
+          - domain: gitlab.com
+            header: PRIVATE-TOKEN
+            format: "%s"
+
+  # --- Install -----------------------------------------------------------
+  - type: com.docker.sandbox/lifecycle@1
+    config:
+      install:
+        - command: |
+            set -e
+            # install re-runs on every sandbox recreate, so skip the
+            # network round-trip if a prior create (or the base image)
+            # already put glab on PATH.
+            if command -v glab >/dev/null 2>&1; then
+              echo "glab already installed: $(glab --version)"
+              exit 0
+            fi
+            # Resolve the latest release version via the GitLab API (stays on gitlab.com).
+            VERSION=$(curl -sf 'https://gitlab.com/api/v4/projects/gitlab-org%2Fcli/releases?per_page=1' \
+              | grep -o '"tag_name":"[^"]*"' | head -1 | cut -d'"' -f4 | sed 's/^v//')
+            # Map uname -m to glab's release architecture labels.
+            ARCH=$(uname -m)
+            case "$ARCH" in
+              x86_64)  ARCH=amd64  ;;
+              aarch64) ARCH=arm64  ;;
+              armv6l)  ARCH=armv6  ;;
+              i386|i686) ARCH=386  ;;
+            esac
+            # Download from the GitLab Package Registry and install.
+            # The archive has wrap_in_directory=false, so bin/glab sits one level deep.
+            curl -sfL "https://gitlab.com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/${VERSION}/glab_${VERSION}_linux_${ARCH}.tar.gz" \
+              -o /tmp/glab.tar.gz
+            tar xzf /tmp/glab.tar.gz -C /usr/local/bin --strip-components=1 bin/glab
+            rm /tmp/glab.tar.gz
+          # Hook env is deny-by-default in v3; curl needs the proxy vars.
+          env: [HTTP_PROXY, HTTPS_PROXY, NO_PROXY]
+          description: Install latest glab binary from the GitLab Package Registry (all traffic stays on gitlab.com; skipped if already present)
+        - command: "glab config set -g host gitlab.com"
+          user: "1000"
+          description: Point glab at gitlab.com by default

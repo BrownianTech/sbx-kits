@@ -1,0 +1,39 @@
+# syntax=docker/sandbox-kit:3
+schemaVersion: "3"
+kind: mixin
+displayName: Agent git
+description: >
+  Setup the agent to operate only via token auth
+  with it's own git user config
+
+capabilities:
+  # Both hooks only write ~/.gitconfig: no network, no env beyond the
+  # platform baseline (HOME), so no `env:` list and no network policy.
+  - type: com.docker.sandbox/lifecycle@1
+    config:
+      startup:
+        - command:
+            - sh
+            - -c
+            - |
+              git config --global user.name 'Sandbox Agent' &&
+              git config --global user.email 'browniantech@gmail.com'
+          user: "1000"
+          description: Agent identity
+        - command:
+            - sh
+            - -c
+            - |
+              git config --global --replace-all url."https://github.com/".insteadOf "git@github.com:" &&
+              git config --global --add url."https://github.com/".insteadOf "ssh://git@github.com/" &&
+              git config --global --replace-all url."https://gitlab.com/".insteadOf "git@gitlab.com:" &&
+              git config --global --add url."https://gitlab.com/".insteadOf "ssh://git@gitlab.com/"
+          user: "1000"
+          description: SSH-to-HTTPS rewriting
+
+  - type: com.docker.sandbox/agent-context@1
+    config:
+      content: |
+        Git remotes for github.com and gitlab.com are rewritten to HTTPS and
+        authenticated by the sandbox proxy. Commits are authored as the bot account.
+        `gh` and `glab` work as normal; the real tokens are injected host-side.

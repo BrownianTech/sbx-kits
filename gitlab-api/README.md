@@ -58,8 +58,9 @@ sbx kit add <sandbox-name> /path/to/sbx-kits/gitlab-ssh/
 
 ## Self-hosted GitLab
 
-Replace every `gitlab.com` in `spec.yaml` with your instance's hostname
-(three places: `caps.network.allow`, `credentials[].apiKey.inject[].domain`,
+Replace every `gitlab.com` in `gitlab-api.yaml` with your instance's hostname
+(the `network-policy@1` install and runtime allow lists, the `credential@1`
+`inject[].domain`, the release URLs in the glab install hook,
 and the `glab config set -g host` command) — and use the same hostname in
 the `--host` flag when running `sbx secret set-custom`.
 
@@ -75,7 +76,10 @@ sbx kit add <sandbox-name> /path/to/sbx-kits/gitlab-api/
 
 ## Iterating on the kit
 
+v3 kits need an `sbx` release candidate or nightly. `sbx kit validate`
+doesn't accept v3 source kits; building the descriptor is what validates it.
+
 ```console
-sbx kit validate ./gitlab-api/
+(cd gitlab-api && docker buildx build . -f gitlab-api.yaml --output type=cacheonly)
 sbx kit inspect ./gitlab-api/
 ```
