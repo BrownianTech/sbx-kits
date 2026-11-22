@@ -9,6 +9,12 @@ description: >
   the target host if it isn't allowed by default (e.g. gitlab-ssh/gitlab-api
   for gitlab.com) and with agent-git if the repo is private.
 
+# Soft dependency on agent-git: when it's in the composition, its startup
+# hooks (including the SSH-to-HTTPS rewrite) run before this kit's clone, so
+# a `git@github.com:`/`git@gitlab.com:` repo is cloned over HTTPS with proxy
+# auth. Without agent-git this kit composes as before.
+integrates: ["agent-git"]
+
 args:
   repo:
     description: >

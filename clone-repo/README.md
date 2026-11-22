@@ -69,10 +69,10 @@ Run it with `sbx env run`.
 This kit only clones and opens network egress to `host`; it does not wire up
 credentials. Pair it with:
 
-- [`agent-git`](../agent-git/) for GitHub/GitLab HTTPS token auth. Give
-  `repo` as an `https://` URL. agent-git's SSH-to-HTTPS rewrite is also a
-  startup hook, and nothing guarantees it runs before this kit's clone, so
-  don't rely on it to rewrite a `git@` `repo`.
+- [`agent-git`](../agent-git/) for GitHub/GitLab HTTPS token auth. This kit
+  declares `integrates: ["agent-git"]`, so when both are loaded agent-git's
+  startup hooks run first: its SSH-to-HTTPS rewrite applies to the clone,
+  and a `git@github.com:` or `git@gitlab.com:` `repo` is cloned over HTTPS.
 - [`gitlab-ssh`](../gitlab-ssh/) if you'd rather clone over SSH from
   gitlab.com
 
