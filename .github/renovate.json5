@@ -18,8 +18,19 @@
     {
       // Every dependency in this repo only affects CI, so commit as
       // `ci(deps): ...` rather than the default `fix(deps): ...`.
-      matchManagers: ['github-actions'],
+      matchManagers: ['github-actions', 'custom.regex'],
       semanticCommitType: 'ci',
+    },
+  ],
+  customManagers: [
+    {
+      // validate.yml pins the sandbox-kit frontend that CI validates kits
+      // with. Renovate keeps the `3` tag and bumps the digest.
+      customType: 'regex',
+      description: 'Pinned docker/sandbox-kit frontend used by the validate workflow',
+      managerFilePatterns: ['/^\\.github/workflows/validate\\.ya?ml$/'],
+      matchStrings: ['SANDBOX_KIT_FRONTEND:\\s*(?<depName>docker/sandbox-kit):(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[0-9a-f]{64})'],
+      datasourceTemplate: 'docker',
     },
   ],
 }

@@ -24,6 +24,8 @@ directory under the agent user's home rather than anything host-supplied.
 `host` exists because the kit's own runtime network allow list is built from
 it (`network-policy@1` → `runtime.allow: [<host>]`) — declare it separately
 rather than parsing it out of `repo`.
+It must be a lowercase DNS name (no IP address), because it's also the server
+the kit's SSH agent grant is limited to.
 
 `host` is required. In the v2 kit it could be left unset when a paired kit
 (`agent-git`, `gitlab-api`, `gitlab-ssh`) already opened egress to that host,
@@ -67,10 +69,16 @@ Run it with `sbx env run`.
 This kit only clones and opens network egress to `host`; it does not wire up
 credentials. Pair it with:
 
-- [`agent-git`](../agent-git/) for GitHub/GitLab HTTPS token auth (rewrites
-  SSH remotes to HTTPS too, so a `git@` URL in `repo` still works)
+- [`agent-git`](../agent-git/) for GitHub/GitLab HTTPS token auth. Give
+  `repo` as an `https://` URL. agent-git's SSH-to-HTTPS rewrite is also a
+  startup hook, and nothing guarantees it runs before this kit's clone, so
+  don't rely on it to rewrite a `git@` `repo`.
 - [`gitlab-ssh`](../gitlab-ssh/) if you'd rather clone over SSH from
   gitlab.com
+
+For `git@` URLs this kit requests your host's SSH agent itself
+(`ssh-agent@1`, limited to logins to `host`), so the clone can authenticate
+with your keys. The request is optional, and HTTPS clones don't use it.
 
 ## vs. `sbx create --clone`
 

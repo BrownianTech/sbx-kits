@@ -4,14 +4,15 @@ kind: mixin
 displayName: GitLab (glab + token auth)
 description: >
   Installs the glab CLI and wires up token-based auth for gitlab.com so the
-  agent can push branches (over the SSH agent, forwarded automatically) and
+  agent can push branches (over the host's SSH agent, forwarded for logins
+  to gitlab.com) and
   open merge requests (over the API, via this kit's credential wiring).
 
 capabilities:
   # --- Network -----------------------------------------------------------
   # v3 network policy is phase-scoped, and an absent phase grants nothing.
-  # If you're on self-hosted GitLab, replace gitlab.com everywhere in this
-  # file with your hostname.
+  # For self-hosted GitLab, see the README: the install-phase entry and the
+  # glab release URLs must stay on gitlab.com, where glab is published.
   #
   # MIGRATION NOTE: v2 listed both `gitlab.com` and `gitlab.com:22`. A
   # portless entry already matches any port, so `gitlab.com` alone covers
@@ -31,7 +32,7 @@ capabilities:
   # --- Credentials -------------------------------------------------------
   # One credential@1 per service. The kit only describes WHAT it needs
   # (service id + where to inject it); WHERE the real value lives is up to
-  # the host, populated by `sbx secret set`.
+  # the host, populated by `sbx secret set-custom` (see README).
   #
   # optional: v2 credentials defaulted to not-required; v3 inverts that.
   - type: com.docker.sandbox/credential@1
@@ -47,6 +48,22 @@ capabilities:
           - domain: gitlab.com
             header: PRIVATE-TOKEN
             format: "%s"
+
+  # --- SSH --------------------------------------------------------------
+  # MIGRATION NOTE: v2 sbx forwarded the host's SSH agent into every sandbox
+  # automatically. v3 gives a sandbox no agent unless a kit requests one
+  # (ssh-agent@1), so the forwarding is declared here. Bounded to logins as
+  # git@gitlab.com rather than unrestricted, so the agent can't sign in to any
+  # other server or make commit signatures. Optional, matching v2: with no
+  # agent on the host the sandbox still starts, just without SSH_AUTH_SOCK.
+  - type: com.docker.sandbox/ssh-agent@1
+    optional: true
+    description: Host SSH agent for git push/pull to gitlab.com
+    config:
+      phase: runtime
+      unrestricted: false
+      authenticate:
+        - git@gitlab.com
 
   # --- Install -----------------------------------------------------------
   - type: com.docker.sandbox/lifecycle@1

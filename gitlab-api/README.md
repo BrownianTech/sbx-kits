@@ -58,11 +58,15 @@ sbx kit add <sandbox-name> /path/to/sbx-kits/gitlab-ssh/
 
 ## Self-hosted GitLab
 
-Replace every `gitlab.com` in `gitlab-api.yaml` with your instance's hostname
-(the `network-policy@1` install and runtime allow lists, the `credential@1`
-`inject[].domain`, the release URLs in the glab install hook,
-and the `glab config set -g host` command) — and use the same hostname in
-the `--host` flag when running `sbx secret set-custom`.
+In `gitlab-api.yaml`, replace `gitlab.com` with your instance's hostname in
+the `network-policy@1` runtime allow list, the `credential@1`
+`inject[].domain`, the `glab config set -g host` command and the git
+credential-helper URL. Use the same hostname in the `--host` flag when
+running `sbx secret set-custom`.
+
+Leave the install-phase allow entry and the release URLs in the glab install
+hook on `gitlab.com`. glab is only published there, so changing them breaks
+the install and sandbox creation fails.
 
 ## If the install command fails
 

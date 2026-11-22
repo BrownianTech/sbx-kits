@@ -24,8 +24,10 @@ args:
       Hostname to allow egress to for the clone (e.g. github.com,
       gitlab.com, git.example.com). Set it to the host in `repo`.
     required: true
-    # Bare hostname: no scheme, path, port or shell metacharacters.
-    pattern: '^[A-Za-z0-9][A-Za-z0-9.-]*$'
+    # Bare lowercase DNS name: no scheme, path, port, IP address or shell
+    # metacharacters. ssh-agent@1's `authenticate` only accepts a lowercase
+    # DNS name, so the last label must contain a letter.
+    pattern: '^([a-z0-9-]+\.)*[a-z0-9-]*[a-z][a-z0-9-]*$'
   ref:
     description: Branch, tag, or commit to check out after cloning.
     default: ""
@@ -59,9 +61,25 @@ capabilities:
               fi
           user: "1000"
           # Hook env is deny-by-default in v3. git reaches the remote through
-          # the sandbox proxy (HTTPS) or the forwarded SSH agent (git@ URLs).
+          # the sandbox proxy (HTTPS) or the forwarded SSH agent (git@ URLs,
+          # via the ssh-agent@1 entry below; a startup hook only gets
+          # SSH_AUTH_SOCK when it lists it here).
           env: [HTTP_PROXY, HTTPS_PROXY, NO_PROXY, SSH_AUTH_SOCK]
           description: Clone the remote repo into the workspace (skipped if already cloned)
+
+  # MIGRATION NOTE: v2 forwarded the host's SSH agent automatically; v3
+  # needs this request. It's for `git@` repo URLs; HTTPS clones don't use it.
+  # Runtime phase, because the clone is a startup hook. Bounded to logins
+  # to `host` (any user), and optional so HTTPS-only setups without a host
+  # agent still start.
+  - type: com.docker.sandbox/ssh-agent@1
+    optional: true
+    description: Host SSH agent for cloning git@ URLs
+    config:
+      phase: runtime
+      unrestricted: false
+      authenticate:
+        - ${{ kit.args.host }}
 
   # Inline `content:`, not a contentFile: the body names the `repo` arg, and
   # a staged contentFile body is never arg-expanded.

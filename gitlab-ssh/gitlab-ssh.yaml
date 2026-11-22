@@ -3,10 +3,9 @@ schemaVersion: "3"
 kind: mixin
 displayName: GitLab (SSH)
 description: >
-  Opens port 22 to gitlab.com so git push/pull over SSH works inside the
-  sandbox. sbx automatically forwards SSH_AUTH_SOCK from the host, so no
-  key management or credential wiring is needed — this kit is purely a
-  network-policy cap.
+  Opens port 22 to gitlab.com and forwards the host's SSH agent (for logins
+  to gitlab.com only) so git push/pull over SSH works inside the sandbox.
+  No key management or credential wiring is needed.
 
 capabilities:
   # Runtime only: the agent's git traffic. The port stays pinned to 22
@@ -16,3 +15,18 @@ capabilities:
       runtime:
         allow:
           - gitlab.com:22
+
+  # MIGRATION NOTE: v2 sbx forwarded the host's SSH agent into every sandbox
+  # automatically. v3 gives a sandbox no agent unless a kit requests one
+  # (ssh-agent@1), so the forwarding is declared here. Bounded to logins as
+  # git@gitlab.com rather than unrestricted, so the agent can't sign in to any
+  # other server or make commit signatures. Optional, matching v2: with no
+  # agent on the host the sandbox still starts, just without SSH_AUTH_SOCK.
+  - type: com.docker.sandbox/ssh-agent@1
+    optional: true
+    description: Host SSH agent for git over SSH to gitlab.com
+    config:
+      phase: runtime
+      unrestricted: false
+      authenticate:
+        - git@gitlab.com

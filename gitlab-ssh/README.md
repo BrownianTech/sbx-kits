@@ -1,14 +1,19 @@
 # gitlab-ssh kit
 
-Opens port 22 to `gitlab.com` so git operations over SSH work inside a
-sandbox.
+Opens port 22 to `gitlab.com` and forwards your host's SSH agent so git
+operations over SSH work inside a sandbox.
 
 ## How it works
 
-sbx automatically forwards `SSH_AUTH_SOCK` from the host into the sandbox,
-so your existing SSH key is available without any extra setup. The only
-thing blocking `git push` / `git pull` over SSH is the default-deny network
-policy — this kit adds the single allow rule needed.
+Under v3 kits, a sandbox gets no SSH agent unless a kit asks for one. This
+kit declares `ssh-agent@1`, so sbx forwards your host's agent and sets
+`SSH_AUTH_SOCK` inside the sandbox. Your private keys stay on the host. The
+grant only covers logins as `git@gitlab.com`, so the agent can't log in to
+other servers or sign commits. The kit also adds the `gitlab.com:22` allow
+rule that the default-deny network policy would otherwise block.
+
+The agent request is optional: with no agent on the host the sandbox still
+starts, but SSH operations will fail.
 
 ## Prerequisites
 

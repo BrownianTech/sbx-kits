@@ -2,14 +2,15 @@
 
 A Docker Sandboxes mixin kit that adds GitLab support to any agent
 (`claude`, `codex`, etc): installs `glab` and wires up token-based auth so
-the agent can open merge requests, on top of the SSH agent forwarding
-`sbx` already does automatically for git push/pull.
+the agent can open merge requests, and forwards your host's SSH agent for
+git push/pull.
 
 ## How auth works
 
-- **git clone/push** — handled entirely by `sbx` itself. If `SSH_AUTH_SOCK`
-  is set on your host, Docker Sandboxes forwards your agent into the
-  sandbox automatically. No config needed, and this kit doesn't touch it.
+- **git clone/push** — over SSH, with your host's SSH agent. v3 kits only
+  get an agent when they ask for one, so this kit declares `ssh-agent@1`,
+  limited to logins as `git@gitlab.com`. If `SSH_AUTH_SOCK` is set on your
+  host, sbx forwards the agent; your private keys stay on the host.
 - **Opening an MR** — always an API call, which GitLab authenticates with a
   token, not SSH. This kit declares a `gitlab` credential (kit-spec v3:
   a `credential@1` capability) with an `inject` rule so the host-side proxy
@@ -55,7 +56,7 @@ the real value lives is entirely up to the user-side bindings file
 From inside a git repository:
 
 ```console
-$ sbx run --clone claude --kit ./gitlab-kit/
+$ sbx run --clone claude --kit ./gitlab/
 ```
 
 `--clone` gives the agent its own clone inside the sandbox (your working
@@ -94,11 +95,15 @@ $ sbx kit add claude-blog ~/repos/sbx-kits/gitlab/
 
 ## Self-hosted GitLab
 
-Replace every `gitlab.com` in `gitlab.yaml` with your instance's hostname
-(the `network-policy@1` install and runtime allow lists, the `credential@1`
-`inject[].domain`, the release URLs in the glab install hook,
-and the `glab config set -g host` install command) — and use the same
-hostname in the `--host` flag when running `sbx secret set-custom`.
+In `gitlab.yaml`, replace `gitlab.com` with your instance's hostname in the
+`network-policy@1` runtime allow list, the `credential@1` `inject[].domain`,
+the `ssh-agent@1` `authenticate` entry and the `glab config set -g host`
+command. Use the same hostname in the `--host` flag when running
+`sbx secret set-custom`.
+
+Leave the install-phase allow entry and the release URLs in the glab install
+hook on `gitlab.com`. glab is only published there, so changing them breaks
+the install and sandbox creation fails.
 
 ## Iterating on the kit
 
