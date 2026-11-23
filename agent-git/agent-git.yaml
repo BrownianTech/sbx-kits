@@ -22,6 +22,8 @@ args:
   name:
     description: Git user.name for the agent's commits
     default: "Sandbox Agent"
+    # Rejects an empty name at create time; git refuses to commit with one.
+    pattern: '^[^\r\n]+$'
     env: AGENT_GIT_USER_NAME
   email:
     description: >
