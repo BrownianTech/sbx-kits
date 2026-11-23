@@ -7,8 +7,8 @@ description: >
   agent can open merge requests over the API. Credential injection is handled
   by the host-side proxy: the sandbox only ever sees the placeholder string
   "proxy-managed" in GITLAB_TOKEN; the real token is injected into the
-  PRIVATE-TOKEN header at the network layer. Pair with the gitlab-ssh kit if
-  you also need git push/pull over SSH.
+  PRIVATE-TOKEN header at the network layer. Pair with docker.io/sbx/gitlab-ssh
+  if you also need git push/pull over SSH.
 
 capabilities:
   # install: the glab release lookup and download in the install hook.

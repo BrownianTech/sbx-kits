@@ -28,7 +28,7 @@ It must be a lowercase DNS name (no IP address), because it's also the server
 the kit's SSH agent grant is limited to.
 
 `host` is required. In the v2 kit it could be left unset when a paired kit
-(`agent-git`, `gitlab-api`, `gitlab-ssh`) already opened egress to that host,
+(`agent-git`, `gitlab-api`) already opened egress to that host,
 but v3 rejects an empty host in a network-policy entry. Setting it to a host a
 paired kit already allows is harmless: allow lists from every kit in the
 composition are unioned and deduplicated.
@@ -73,8 +73,9 @@ credentials. Pair it with:
   declares `integrates: ["agent-git"]`, so when both are loaded agent-git's
   startup hooks run first: its SSH-to-HTTPS rewrite applies to the clone,
   and a `git@github.com:` or `git@gitlab.com:` `repo` is cloned over HTTPS.
-- [`gitlab-ssh`](../gitlab-ssh/) if you'd rather clone over SSH from
-  gitlab.com
+- upstream [`docker.io/sbx/gitlab-ssh`](https://github.com/docker/sbx-kits-contrib/tree/v3/gitlab-ssh)
+  if you'd rather clone over SSH from gitlab.com. Its agent request is
+  required, so creating the sandbox fails if your host has no SSH agent.
 
 For `git@` URLs this kit requests your host's SSH agent itself
 (`ssh-agent@1`, limited to logins to `host`), so the clone can authenticate

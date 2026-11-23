@@ -49,11 +49,16 @@ glab mr create --fill
 ## Pairing with gitlab-ssh
 
 This kit only opens port 443 to `gitlab.com`. If you also need `git push` /
-`git pull` over SSH, apply the `gitlab-ssh` kit alongside this one:
+`git pull` over SSH, add the upstream
+[`gitlab-ssh`](https://github.com/docker/sbx-kits-contrib/tree/v3/gitlab-ssh)
+kit alongside this one (the local copy was removed, see
+[MIGRATION.md](../MIGRATION.md)):
 
 ```console
-sbx kit add <sandbox-name> /path/to/sbx-kits/gitlab-api/
-sbx kit add <sandbox-name> /path/to/sbx-kits/gitlab-ssh/
+sbx run \
+  --kit /path/to/sbx-kits/gitlab-api/ \
+  --kit "docker.io/sbx/gitlab-ssh:latest" \
+  claude
 ```
 
 ## Self-hosted GitLab

@@ -6,8 +6,8 @@ description: >
   Clones a remote Git repository straight into the sandbox workspace on
   startup, for use with a workspace-less `sbx create` (no PATH argument, so
   nothing from the host filesystem is mounted). Pair with a network kit for
-  the target host if it isn't allowed by default (e.g. gitlab-ssh/gitlab-api
-  for gitlab.com) and with agent-git if the repo is private.
+  the target host if it isn't allowed by default (e.g. gitlab-api, or
+  docker.io/sbx/gitlab-ssh for gitlab.com) and with agent-git if the repo is private.
 
 # Soft dependency on agent-git: when it's in the composition, its startup
 # hooks (including the SSH-to-HTTPS rewrite) run before this kit's clone, so
@@ -21,7 +21,7 @@ args:
       Git URL to clone (https:// or git@ — anything `git clone` accepts).
     required: true
   # MIGRATION NOTE: `host` was optional (default "") in v2, so a kit paired
-  # with gitlab-api/gitlab-ssh/agent-git could skip its own allow rule. v3
+  # with gitlab-api/agent-git could skip its own allow rule. v3
   # rejects an empty host in a network-policy entry after create-time
   # expansion, so it is required now. Restating a host another kit already
   # allows is harmless: allow lists union and dedupe across the composition.
@@ -97,4 +97,4 @@ capabilities:
         working tree backing it. cd there if you don't start out in it. Commits
         are local to the sandbox until pushed; push to the real remote (`origin`)
         as usual, with credentials from whichever auth kit (agent-git,
-        gitlab-api, gitlab-ssh) is paired with this one.
+        gitlab-api, or an SSH kit) is paired with this one.
