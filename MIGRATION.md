@@ -11,8 +11,8 @@ removed.
 
 v2 sbx forwarded your host's SSH agent into every sandbox. In v3 a sandbox
 gets no agent unless a kit requests one with `ssh-agent@1`. In this repo
-`clone-repo` and `gitlab` do that, limited to logins to their git host.
-Upstream `docker.io/sbx/gitlab-ssh` does too.
+`clone-repo` does that, limited to logins to its git host. Upstream
+`docker.io/sbx/gitlab-ssh` does too.
 
 Forwarding is still switched on and off globally on the host with an `sbx`
 setting (default `true`). Upstream's end-to-end tests set it for their v3 SSH
@@ -52,18 +52,29 @@ Differences from the local kit:
 This was a reproduction for a v2 `sbx kit add` bug, not a kit to use. It has
 no replacement.
 
-## `gitlab` and `gitlab-api`
+## Removed: `gitlab`
 
-Both are still here for now, because they configure git over HTTPS to
-gitlab.com with a credential helper. Upstream doesn't support that yet. The
+It was `gitlab-api` plus SSH access to gitlab.com. Use `gitlab-api` with
+upstream `gitlab-ssh` (see the differences above):
+
+```console
+sbx run \
+  --kit /path/to/sbx-kits/gitlab-api/ \
+  --kit "docker.io/sbx/gitlab-ssh:latest" \
+  claude
+```
+
+## `gitlab-api`
+
+It's still here for now, because it authenticates git over HTTPS to
+gitlab.com as well as glab. Upstream doesn't support that yet. The
 upstream [`gitlab`](https://github.com/docker/sbx-kits-contrib/tree/v3/gitlab)
 kit does the rest better: glab ships pinned in the kit image, and
 self-managed instances are args.
 
 To move to upstream:
 
-1. Swap `gitlab-api` for upstream `gitlab`, and `gitlab` for upstream
-   `gitlab` + `gitlab-ssh`:
+1. Swap `gitlab-api` for upstream `gitlab` + `gitlab-ssh`:
 
    ```console
    sbx run \
