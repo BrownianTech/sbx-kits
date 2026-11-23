@@ -51,6 +51,11 @@ capabilities:
           # Hook env is deny-by-default in v3.
           env: [AGENT_GIT_USER_NAME, AGENT_GIT_USER_EMAIL]
           description: Agent identity
+        # TODO: the gitlab.com rewrite relies on git over HTTPS being
+        # authenticated, which today needs gitlab-api's custom secret. If
+        # GitLab auth moves to upstream docker.io/sbx/gitlab + gitlab-ssh
+        # (SSH for git), drop the two gitlab.com lines. Depends on
+        # https://github.com/docker/sbx-releases/issues/596
         - command:
             - sh
             - -c

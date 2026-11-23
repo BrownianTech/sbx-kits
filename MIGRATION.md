@@ -66,6 +66,22 @@ sbx run \
 
 ## `gitlab-api`
 
+Auth now comes only from a custom secret. The kit no longer declares a
+`gitlab` credential, because a kit credential can't cover both the API and
+git over HTTPS on one host
+([docker/sbx-releases#596](https://github.com/docker/sbx-releases/issues/596)).
+If you followed the v2 README you already have the secret:
+
+```console
+sbx secret set-custom -g --host gitlab.com --env GITLAB_TOKEN \
+  --placeholder proxy-managed --value glpat-…
+```
+
+A `gitlab` service secret (`sbx secret set gitlab`) does nothing for this kit.
+
+The git credential helper no longer calls glab: it hands git the placeholder
+from `GITLAB_TOKEN` directly.
+
 It's still here for now, because it authenticates git over HTTPS to
 gitlab.com as well as glab. Upstream doesn't support that yet. The
 upstream [`gitlab`](https://github.com/docker/sbx-kits-contrib/tree/v3/gitlab)
@@ -90,6 +106,11 @@ To move to upstream:
    API traffic, so `git push` over HTTPS isn't authenticated. That means
    `agent-git`'s `git@gitlab.com:` → HTTPS rewrite works against you here:
    with upstream's kits, GitLab remotes need to stay on SSH.
+
+> **TO CHECK:** on sbx v0.54.0 even upstream `gitlab`'s own credential wasn't
+> injected for gitlab.com. Its README says v3 needs an sbx release candidate
+> or nightly, so test there before switching. Until #596 lands, keeping the
+> custom secret is the only setup that authenticates both glab and git.
 
 ## `clone-repo`: `host` is required
 
